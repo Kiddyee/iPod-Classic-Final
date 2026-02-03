@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iPod Classic Ultra Dark + Search</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+    <style>
+        :root { 
+            --ipod-bg: #d4d4d4; --wheel-bg: #fff; --screen-bg: #fff; --text-color: #333; 
+            --header-bg: linear-gradient(#eee, #ccc); --status-bg: linear-gradient(#eee, #bbb);
+            --border-color: #999; --input-bg: #eee;
+        }
+        * { box-sizing: border-box; user-select: none; -webkit-tap-highlight-color: transparent; }
+        body { background: #1a1a1a; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
+        
+        .ipod { width: 330px; height: 530px; background: var(--ipod-bg); border-radius: 35px; padding: 20px; display: flex; flex-direction: column; align-items: center; box-shadow: inset 0 0 15px rgba(255,255,255,0.5), 10px 10px 30px #000; position: relative; transition: all 0.4s ease; }
+        .screen { width: 280px; height: 210px; background: var(--screen-bg); border: 3px solid #333; border-radius: 4px; overflow: hidden; display: flex; flex-direction: column; position: relative; color: var(--text-color); transition: background 0.4s, color 0.4s; }
+        .status-bar { height: 22px; background: var(--status-bg); display: flex; justify-content: space-between; align-items: center; padding: 0 8px; font-size: 11px; font-weight: bold; border-bottom: 1px solid var(--border-color); color: #000; }
+        
+        .view { display: none; width: 100%; height: calc(100% - 22px); flex-direction: column; overflow: hidden; background: var(--screen-bg); }
+        .view.active { display: flex; }
+        .menu-header { background: var(--header-bg); padding: 5px; font-size: 13px; font-weight: bold; border-bottom: 1px solid var(--border-color); text-align: center; color: #000; }
+        .menu-list { list-style: none; padding: 0; margin: 0; overflow-y: auto; flex: 1; }
+        .menu-item { padding: 8px 12px; border-bottom: 1px solid rgba(128,128,128,0.2); font-size: 14px; color: var(--text-color); }
+        .menu-item.selected { background: linear-gradient(#5eaef5, #1d73c9); color: #fff !important; }
+
+        .search-container { padding: 5px; background: var(--input-bg); border-bottom: 1px solid var(--border-color); }
+        #searchInput { width: 100%; border-radius: 10px; border: 1px solid var(--border-color); padding: 3px 10px; font-size: 12px; outline: none; background: var(--screen-bg); color: var(--text-color); }
+
+        .player-layout { display: flex; padding: 10px; gap: 10px; height: 130px; }
+        .art { width: 100px; height: 100px; background: #555; border: 1px solid var(--border-color); background-size: cover; background-position: center; }
+        .info h4 { margin: 0; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .progress-cont { width: 90%; height: 10px; background: rgba(128,128,128,0.2); border: 1px solid var(--border-color); margin: 5px auto; }
+        .bar { height: 100%; background: #3672b5; width: 0%; }
+        .times { display: flex; justify-content: space-between; width: 90%; margin: 0 auto; font-size: 10px; }
+
+        .wheel-cont { width: 230px; height: 230px; background: var(--wheel-bg); border-radius: 50%; margin-top: 25px; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.2); touch-action: none; transition: background 0.4s; }
+        .center-btn { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 80px; height: 80px; background: #e0e0e0; border-radius: 50%; border: 1px solid #ccc; z-index: 10; cursor: pointer; }
+        .btn { position: absolute; font-weight: bold; color: #999; font-size: 13px; padding: 20px; z-index: 5; cursor: pointer; }
+        .top { top: 0; left: 50%; transform: translateX(-50%); }
+        .right { right: 0; top: 50%; transform: translateY(-50%); }
+        .left { left: 0; top: 50%; transform: translateY(-50%); }
+        .bottom { bottom: 0; left: 50%; transform: translateX(-50%); }
+        #folderInput { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="ipod" id="ipod-body">
+    <div class="screen">
+        <div class="status-bar"><span id="p-status">⏸</span><span id="time">12:00</span><span>🔋</span></div>
+        
+        <div id="view-main" class="view active">
+            <div class="menu-header">iPod</div>
+            <ul class="menu-list">
+                <li class="menu-item selected" data-view="view-music-nav">Música ></li>
+                <li class="menu-item" data-view="view-player">Ahora suena ></li>
+                <li class="menu-item" data-view="view-settings">Ajustes ></li>
+                <li class="menu-item" onclick="document.getElementById('folderInput').click()">Sincronizar...</li>
+            </ul>
+        </div>
+
+        <div id="view-music-nav" class="view">
+            <div class="menu-header">Música</div>
+            <ul class="menu-list">
+                <li class="menu-item selected" data-view="view-search">Buscar</li>
+                <li class="menu-item" data-view="view-albums">Álbumes</li>
+                <li class="menu-item" data-view="view-songs-all">Canciones</li>
+                <li class="menu-item" data-view="view-top">Top Escuchadas</li>
+            </ul>
+        </div>
+
+        <div id="view-search" class="view">
+            <div class="search-container">
+                <input type="text" id="searchInput" placeholder="Escribe para buscar..." oninput="execSearch(this.value)">
+            </div>
+            <ul class="menu-list" id="list-search"></ul>
+        </div>
+
+        <div id="view-settings" class="view">
+            <div class="menu-header">Ajustes</div>
+            <ul class="menu-list">
+                <li class="menu-item selected" onclick="setTheme('classic')">Color: Clásico</li>
+                <li class="menu-item" onclick="setTheme('black')">Color: Negro (Dark)</li>
+                <li class="menu-item" onclick="setTheme('u2')">Color: U2 Edition</li>
+            </ul>
+        </div>
+
+        <div id="view-albums" class="view"><div class="menu-header">Álbumes</div><ul class="menu-list" id="list-albums"></ul></div>
+        <div id="view-songs" class="view"><div class="menu-header" id="songs-title">Canciones</div><ul class="menu-list" id="list-songs"></ul></div>
+        <div id="view-top" class="view"><div class="menu-header">Más escuchadas</div><ul class="menu-list" id="list-top"></ul></div>
+
+        <div id="view-player" class="view">
+            <div class="player-layout">
+                <div id="p-art" class="art"></div>
+                <div class="info"><h4 id="p-title">Nada sonando</h4><p id="p-artist">---</p></div>
+            </div>
+            <div class="progress-cont"><div id="p-bar" class="bar"></div></div>
+            <div class="times"><span id="p-curr">0:00</span><span id="p-rem">-0:00</span></div>
+        </div>
+    </div>
+    
+    <input type="file" id="folderInput" multiple accept="audio/*">
+    <audio id="audio"></audio>
+    <audio id="snd-select" src="select.mp3"></audio>
+
+    <div class="wheel-cont" id="wheel">
+        <div class="btn top" onclick="goBack()">MENU</div>
+        <div class="btn right" onclick="nextTrack()">⏭</div>
+        <div class="btn left" onclick="prevTrack()">⏮</div>
+        <div class="btn bottom" onclick="togglePlay()">▶||</div>
+        <div class="center-btn" id="center-button" onclick="handleSelect()"></div>
+    </div>
+</div>
+
+<script>
+    const audio = document.getElementById('audio');
+    const sndSelect = document.getElementById('snd-select');
+    let masterList = [], albums = {}, queue = [], currentList = [], playedSongs = [];
+    let selectedIdx = 0, currentView = 'view-main', currentSongFile = null;
+    let playCounts = JSON.parse(localStorage.getItem('playCounts') || '{}');
+    let db;
+
+    // --- TEMAS (INCLUYENDO BUSCADOR) ---
+    function setTheme(theme) {
+        const r = document.documentElement;
+        if (theme === 'classic') {
+            r.style.setProperty('--ipod-bg', '#d4d4d4');
+            r.style.setProperty('--wheel-bg', '#fff');
+            r.style.setProperty('--screen-bg', '#fff');
+            r.style.setProperty('--text-color', '#333');
+            r.style.setProperty('--header-bg', 'linear-gradient(#eee, #ccc)');
+            r.style.setProperty('--status-bg', 'linear-gradient(#eee, #bbb)');
+            r.style.setProperty('--border-color', '#999');
+            r.style.setProperty('--input-bg', '#eee');
+        } else {
+            r.style.setProperty('--ipod-bg', theme === 'black' ? '#1a1a1a' : '#000');
+            r.style.setProperty('--wheel-bg', theme === 'black' ? '#333' : 'red');
+            r.style.setProperty('--screen-bg', '#000');
+            r.style.setProperty('--text-color', '#eee');
+            r.style.setProperty('--header-bg', 'linear-gradient(#333, #111)');
+            r.style.setProperty('--status-bg', 'linear-gradient(#444, #222)');
+            r.style.setProperty('--border-color', '#444');
+            r.style.setProperty('--input-bg', '#222');
+        }
+        sndSelect.play().catch(()=>{});
+    }
+
+    // --- BASE DE DATOS ---
+    const request = indexedDB.open("iPodUltraDB_V4", 1);
+    request.onupgradeneeded = (e) => {
+        db = e.target.result;
+        if(!db.objectStoreNames.contains("songs")) db.createObjectStore("songs", { keyPath: "name" });
+    };
+    request.onsuccess = (e) => { db = e.target.result; loadLibrary(); };
+
+    function loadLibrary() {
+        const tx = db.transaction("songs", "readonly");
+        tx.objectStore("songs").getAll().onsuccess = (e) => {
+            masterList = e.target.result;
+            processAlbums(masterList);
+        };
+    }
+
+    function processAlbums(files) {
+        albums = {"Todas": files};
+        files.forEach(f => {
+            jsmediatags.read(f, { onSuccess: (t) => {
+                const a = t.tags.album || "Desconocido";
+                if(!albums[a]) albums[a] = [];
+                albums[a].push(f);
+            }});
+        });
+    }
+
+    // --- BUSCADOR ---
+    function execSearch(query) {
+        const filtered = masterList.filter(s => s.name.toLowerCase().includes(query.toLowerCase()));
+        currentList = filtered;
+        const listHtml = filtered.map((s, i) => `<li class="menu-item ${i===0?'selected':''}" data-index="${i}">${s.name.slice(0,30)}</li>`).join('');
+        document.getElementById('list-search').innerHTML = listHtml;
+        selectedIdx = 0;
+    }
+
+    // --- REPRODUCCIÓN ---
+    function playSong(file) {
+        if (currentSongFile) playedSongs.push(currentSongFile);
+        currentSongFile = file;
+        audio.src = URL.createObjectURL(file);
+        audio.play().then(() => updateMetadata(file)).catch(e => console.log(e));
+        
+        playCounts[file.name] = (playCounts[file.name] || 0) + 1;
+        localStorage.setItem('playCounts', JSON.stringify(playCounts));
+    }
+
+    function updateMetadata(file) {
+        jsmediatags.read(file, { onSuccess: (t) => {
+            const tags = t.tags;
+            const title = tags.title || file.name;
+            const artist = tags.artist || "Desconocido";
+            document.getElementById('p-title').innerText = title;
+            document.getElementById('p-artist').innerText = artist;
+
+            let artUrl = '';
+            if (tags.picture) {
+                const { data, format } = tags.picture;
+                const base64 = btoa(String.fromCharCode.apply(null, data));
+                artUrl = `data:${format};base64,${base64}`;
+                document.getElementById('p-art').style.backgroundImage = `url(${artUrl})`;
+            }
+
+            if ('mediaSession' in navigator) {
+                navigator.mediaSession.metadata = new MediaMetadata({
+                    title: title, artist: artist,
+                    artwork: [{ src: artUrl, sizes: '512x512', type: 'image/png' }]
+                });
+                navigator.mediaSession.setActionHandler('seekto', (d) => audio.currentTime = d.seekTime);
+                navigator.mediaSession.setActionHandler('previoustrack', () => prevTrack());
+                navigator.mediaSession.setActionHandler('nexttrack', () => nextTrack());
+            }
+        }});
+    }
+
+    function nextTrack() { 
+        let idx = currentList.indexOf(currentSongFile);
+        if (idx !== -1 && idx < currentList.length - 1) playSong(currentList[idx+1]);
+    }
+
+    function prevTrack() { 
+        if (audio.currentTime > 3) audio.currentTime = 0;
+        else if (playedSongs.length > 0) playSong(playedSongs.pop());
+    }
+
+    audio.onended = nextTrack;
+
+    // --- NAVEGACIÓN ---
+    function handleSelect() {
+        const sel = document.querySelector(`#${currentView} .selected`);
+        if (!sel) return;
+        sndSelect.play().catch(()=>{});
+
+        const v = sel.dataset.view;
+        if (v) {
+            if (v === 'view-search') { execSearch(""); switchView('view-search'); return; }
+            if (v === 'view-albums') renderAlbums();
+            if (v === 'view-songs-all') { renderSongs(masterList, "Canciones"); switchView('view-songs'); return; }
+            if (v === 'view-top') { renderTop(); switchView('view-top'); return; }
+            switchView(v);
+        } else {
+            const idx = Array.from(sel.parentNode.children).indexOf(sel);
+            if (currentView === 'view-albums') {
+                renderSongs(albums[sel.dataset.album], sel.dataset.album);
+                switchView('view-songs');
+            } else {
+                playSong(currentList[idx]);
+                switchView('view-player');
+            }
+        }
+    }
+
+    function renderAlbums() {
+        document.getElementById('list-albums').innerHTML = Object.keys(albums).map((a, i) => `<li class="menu-item ${i===0?'selected':''}" data-album="${a}">${a}</li>`).join('');
+    }
+
+    function renderSongs(songArray, title) {
+        currentList = songArray;
+        document.getElementById('songs-title').innerText = title;
+        document.getElementById('list-songs').innerHTML = songArray.map((s, i) => `<li class="menu-item ${i===0?'selected':''}" data-index="${i}">${s.name.slice(0,25)}</li>`).join('');
+    }
+
+    function renderTop() {
+        const sorted = [...masterList].sort((a,b) => (playCounts[b.name]||0) - (playCounts[a.name]||0)).slice(0, 10);
+        currentList = sorted;
+        document.getElementById('list-top').innerHTML = sorted.map((s, i) => `<li class="menu-item ${i===0?'selected':''}" data-index="${i}">${s.name.slice(0,20)} (${playCounts[s.name]||0})</li>`).join('');
+    }
+
+    function switchView(id) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        currentView = id; selectedIdx = 0;
+        if(id === 'view-search') document.getElementById('searchInput').focus();
+    }
+
+    function goBack() {
+        const tree = { 'view-player': 'view-main', 'view-settings': 'view-main', 'view-search': 'view-music-nav', 'view-songs': 'view-music-nav', 'view-albums': 'view-music-nav', 'view-music-nav': 'view-main', 'view-top': 'view-music-nav' };
+        if (tree[currentView]) switchView(tree[currentView]);
+    }
+
+    function togglePlay() { audio.paused ? audio.play() : audio.pause(); }
+
+    // --- RUEDA ---
+    let lastAngle = null;
+    document.getElementById('wheel').addEventListener('touchmove', (e) => {
+        const rect = e.currentTarget.getBoundingClientRect();
+        const angle = Math.atan2(e.touches[0].clientY - (rect.top + rect.height/2), e.touches[0].clientX - (rect.left + rect.width/2)) * 180 / Math.PI;
+        if (lastAngle !== null) {
+            let d = angle - lastAngle;
+            if (d > 180) d -= 360; if (d < -180) d += 360;
+            if (Math.abs(d) > 25) {
+                const items = document.querySelectorAll(`#${currentView} .menu-list .menu-item`);
+                if (items.length > 1) {
+                    items[selectedIdx].classList.remove('selected');
+                    selectedIdx = (selectedIdx + (d > 0 ? 1 : -1) + items.length) % items.length;
+                    items[selectedIdx].classList.add('selected');
+                    items[selectedIdx].scrollIntoView({block:'nearest'});
+                }
+                lastAngle = angle;
+            }
+        } else lastAngle = angle;
+    });
+
+    audio.ontimeupdate = () => {
+        const pct = (audio.currentTime / audio.duration) * 100 || 0;
+        document.getElementById('p-bar').style.width = pct + "%";
+        document.getElementById('p-curr').innerText = formatT(audio.currentTime);
+        document.getElementById('p-rem').innerText = "-" + formatT(audio.duration - audio.currentTime);
+        if ('mediaSession' in navigator && audio.duration) {
+            navigator.mediaSession.setPositionState({ duration: audio.duration, playbackRate: 1, position: audio.currentTime });
+        }
+    };
+
+    function formatT(s) { return isNaN(s) || s < 0 ? "0:00" : Math.floor(s/60) + ":" + Math.floor(s%60).toString().padStart(2,'0'); }
+
+    document.getElementById('folderInput').onchange = (e) => {
+        const tx = db.transaction("songs", "readwrite");
+        Array.from(e.target.files).forEach(f => tx.objectStore("songs").put(f));
+        tx.oncomplete = () => { loadLibrary(); alert("Biblioteca actualizada"); };
+    };
+
+    setInterval(() => { document.getElementById('time').innerText = new Date().toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}); }, 1000);
+</script>
+</body>
+  </html>
+  
