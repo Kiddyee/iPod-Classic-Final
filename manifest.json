@@ -1,0 +1,23 @@
+{
+  "short_name": "iPod",
+  "name": "iPod Classic Ultimate",
+  "icons": [
+    {
+      "src": "icono.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icono.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1a1a1a",
+  "theme_color": "#1a1a1a",
+  "description": "Reproductor iPod Classic con persistencia, búsqueda y temas."
+}
